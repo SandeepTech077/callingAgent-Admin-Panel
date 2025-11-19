@@ -5,39 +5,23 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 // Import database connection
-const connectDB = require('./src/config/database');
+const connectDB = require('./config/database');
 
 // Import routes
-const routes = require('./src/routes');
+const routes = require('./routes');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB
 connectDB();
 
 // Middleware
 app.use(helmet()); // Security headers
-
-// CORS configuration
-app.use(cors({
-  origin: [
-    'http://localhost:5173', // Vite dev server
-    'http://localhost:3000', // React dev server
-    'http://localhost:8080', // Alternative frontend port
-    process.env.CLIENT_URL
-  ].filter(Boolean), // Remove undefined values
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+app.use(cors()); // Enable CORS
 app.use(morgan('combined')); // Logging
 app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
-
-// Handle preflight requests
-app.options('*', cors());
 
 // Routes
 app.get('/', (req, res) => {
