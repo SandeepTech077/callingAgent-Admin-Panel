@@ -2,17 +2,17 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  name: {
+  firstName: {
     type: String,
-    required: [true, 'Name is required'],
+    required: [true, 'First name is required'],
     trim: true,
-    maxlength: [100, 'Name cannot exceed 100 characters']
+    maxlength: [50, 'First name cannot exceed 50 characters']
   },
-  companyName: {
+  lastName: {
     type: String,
-    required: [true, 'Company name is required'],
+    required: [true, 'Last name is required'],
     trim: true,
-    maxlength: [100, 'Company name cannot exceed 100 characters']
+    maxlength: [50, 'Last name cannot exceed 50 characters']
   },
   email: {
     type: String,
@@ -25,114 +25,114 @@ const userSchema = new mongoose.Schema({
       'Please enter a valid email'
     ]
   },
+  mobile: {
+    type: String,
+    required: [true, 'Mobile number is required'],
+    trim: true,
+    match: [/^[0-9]{10,15}$/, 'Please enter a valid mobile number']
+  },
+  companyName: {
+    type: String,
+    required: [true, 'Company name is required'],
+    trim: true,
+    maxlength: [100, 'Company name cannot exceed 100 characters']
+  },
+  companyAddress: {
+    type: String,
+    required: [true, 'Company address is required'],
+    trim: true,
+    maxlength: [200, 'Company address cannot exceed 200 characters']
+  },
   password: {
     type: String,
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters']
   },
-  role: {
+  userId: {
     type: String,
-    enum: ['user', 'admin', 'super_admin'],
-    default: 'user'
+    unique: true,
+    sparse: true
   },
-  phone: {
-    type: String,
-    required: [true, 'Phone number is required'],
-    trim: true,
-    match: [/^\d{10}$/, 'Please enter a valid 10-digit phone number']
+  isApproval: {
+    type: Number,
+    enum: [0, 1],
+    default: 0,
+    comment: '0 = Not Approved, 1 = Approved'
   },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  isEmailVerified: {
-    type: Boolean,
-    default: false
-  },
-  isApproved: {
-    type: Boolean,
-    default: true
-  },
-  loginAttempts: {
+  totalMinutes: {
     type: Number,
     default: 0,
-    max: 5
+    min: [0, 'Total minutes cannot be negative']
+  },
+  paymentId: {
+    type: String,
+    trim: true
+  },
+  otp: {
+    type: String
+  },
+  otpExpires: {
+    type: Date
   },
   lastLogin: {
     type: Date
   },
-  emailVerificationToken: {
-    type: String
-  },
-  passwordResetToken: {
-    type: String
-  },
-  passwordResetExpires: {
-    type: Date
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true,
   toJSON: { 
     transform: function(doc, ret) {
       delete ret.password;
-      delete ret.emailVerificationToken;
-      delete ret.passwordResetToken;
-      delete ret.passwordResetExpires;
+      delete ret.otp;
+      delete ret.__v;
       return ret;
     }
   }
 });
 
-// Index for better query performance
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
-userSchema.index({ isActive: 1 });
-userSchema.index({ companyName: 1 });
-
-// Hash password before saving
+// Generate userId before saving
 userSchema.pre('save', async function(next) {
+  // Generate userId if not exists
+  if (!this.userId && this.isNew) {
+    const count = await mongoose.model('User').countDocuments();
+    this.userId = `USER${String(count + 1).padStart(6, '0')}`;
+  }
+
+  // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) return next();
-  
+
   try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    // Hash password with cost of 12
+    const hashedPassword = await bcrypt.hash(this.password, 12);
+    this.password = hashedPassword;
     next();
   } catch (error) {
     next(error);
   }
 });
 
-// Compare password method
+// Instance method to check password
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Update last login
+// Instance method to update last login
 userSchema.methods.updateLastLogin = function() {
   this.lastLogin = new Date();
-  this.loginAttempts = 0;
   return this.save();
 };
 
-// Increment login attempts
-userSchema.methods.incrementLoginAttempts = function() {
-  this.loginAttempts += 1;
-  return this.save();
-};
-
-// Check if user is locked
-userSchema.methods.isLocked = function() {
-  return this.loginAttempts >= 5;
-};
-
-// Static method to find by email
+// Static method to find user by email
 userSchema.statics.findByEmail = function(email) {
-  return this.findOne({ email: email.toLowerCase() });
+  return this.findOne({ email: email.toLowerCase(), isActive: true });
 };
 
-// Virtual for full name
-userSchema.virtual('displayName').get(function() {
-  return this.name;
-});
+// Static method to find user by userId
+userSchema.statics.findByUserId = function(userId) {
+  return this.findOne({ userId, isActive: true });
+};
 
 module.exports = mongoose.model('User', userSchema);

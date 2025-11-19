@@ -1,4 +1,6 @@
-// API configuration and base client
+// API configuration and base client using axios
+import axios from 'axios';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 interface ValidationError {
@@ -13,80 +15,98 @@ interface ApiResponse<T> {
   errors?: ValidationError[];
 }
 
-class ApiClient {
-  private baseURL: string;
+// Create axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-  constructor(baseURL: string) {
-    this.baseURL = baseURL;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const url = `${this.baseURL}${endpoint}`;
-    
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    };
-
-    // Add auth token if available
+// Request interceptor to attach token
+axiosInstance.interceptors.request.use(
+  (config) => {
     const token = localStorage.getItem('authToken');
     if (token) {
-      config.headers = {
-        ...config.headers,
-        'Authorization': `Bearer ${token}`,
-      };
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
+// Response interceptor for error handling
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API request failed:', error);
+    throw error;
+  }
+);
+
+// API client object with methods
+export const apiClient = {
+  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      const response = await axiosInstance.get<ApiResponse<T>>(endpoint);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data) {
+        throw new Error(error.response.data.message || `HTTP error! status: ${error.response.status}`);
       }
+      throw error;
+    }
+  },
 
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
+  async post<T>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
+    try {
+      const response = await axiosInstance.post<ApiResponse<T>>(endpoint, data);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data) {
+        throw new Error(error.response.data.message || `HTTP error! status: ${error.response.status}`);
+      }
+      throw error;
+    }
+  },
+
+  async put<T>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
+    try {
+      const response = await axiosInstance.put<ApiResponse<T>>(endpoint, data);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data) {
+        throw new Error(error.response.data.message || `HTTP error! status: ${error.response.status}`);
+      }
+      throw error;
+    }
+  },
+
+  async patch<T>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
+    try {
+      const response = await axiosInstance.patch<ApiResponse<T>>(endpoint, data);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data) {
+        throw new Error(error.response.data.message || `HTTP error! status: ${error.response.status}`);
+      }
+      throw error;
+    }
+  },
+
+  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+    try {
+      const response = await axiosInstance.delete<ApiResponse<T>>(endpoint);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.data) {
+        throw new Error(error.response.data.message || `HTTP error! status: ${error.response.status}`);
+      }
       throw error;
     }
   }
+};
 
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET' });
-  }
-
-  async post<T>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async put<T>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async patch<T>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
-  }
-}
-
-export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;

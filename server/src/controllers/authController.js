@@ -1,6 +1,5 @@
 const { validationResult } = require('express-validator');
-const Admin = require('../models/Admin');
-const { generateToken, generateRefreshToken, verifyToken } = require('../utils/jwt');
+const authService = require('../services/authService');
 
 // @desc    Login admin
 // @route   POST /api/auth/login
@@ -19,60 +18,22 @@ const login = async (req, res) => {
 
     const { email, password } = req.body;
 
-    // Check if admin exists
-    const admin = await Admin.findByEmail(email);
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Check password
-    const isPasswordValid = await admin.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Generate tokens
-    const tokenPayload = {
-      id: admin._id,
-      email: admin.email,
-      role: admin.role
-    };
-
-    const token = generateToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
-
-    // Save refresh token to admin
-    admin.refreshToken = refreshToken;
-    await admin.updateLastLogin();
+    // Call service
+    const result = await authService.login(email, password);
 
     // Send response
     res.json({
       success: true,
       message: 'Login successful',
-      data: {
-        token,
-        refreshToken,
-        admin: {
-          id: admin._id,
-          name: admin.name,
-          email: admin.email,
-          role: admin.role,
-          lastLogin: admin.lastLogin
-        }
-      }
+      data: result
     });
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
+    const status = error.status || 500;
+    res.status(status).json({
       success: false,
-      message: 'Server error during login',
+      message: error.message || 'Server error during login',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -85,53 +46,21 @@ const refreshToken = async (req, res) => {
   try {
     const { refreshToken: token } = req.body;
 
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Refresh token is required'
-      });
-    }
-
-    // Verify refresh token
-    const decoded = verifyToken(token, true);
-    
-    // Find admin
-    const admin = await Admin.findById(decoded.id);
-    if (!admin || admin.refreshToken !== token || !admin.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid refresh token'
-      });
-    }
-
-    // Generate new tokens
-    const tokenPayload = {
-      id: admin._id,
-      email: admin.email,
-      role: admin.role
-    };
-
-    const newToken = generateToken(tokenPayload);
-    const newRefreshToken = generateRefreshToken(tokenPayload);
-
-    // Update refresh token
-    admin.refreshToken = newRefreshToken;
-    await admin.save();
+    // Call service
+    const result = await authService.refreshToken(token);
 
     res.json({
       success: true,
       message: 'Token refreshed successfully',
-      data: {
-        token: newToken,
-        refreshToken: newRefreshToken
-      }
+      data: result
     });
 
   } catch (error) {
     console.error('Refresh token error:', error);
-    res.status(401).json({
+    const status = error.status || 401;
+    res.status(status).json({
       success: false,
-      message: 'Invalid or expired refresh token'
+      message: error.message || 'Invalid or expired refresh token'
     });
   }
 };
@@ -162,12 +91,8 @@ const getProfile = async (req, res) => {
 // @access  Private
 const logout = async (req, res) => {
   try {
-    // Clear refresh token
-    const admin = await Admin.findById(req.admin.id);
-    if (admin) {
-      admin.refreshToken = null;
-      await admin.save();
-    }
+    // Call service
+    await authService.logout(req.admin.id);
 
     res.json({
       success: true,

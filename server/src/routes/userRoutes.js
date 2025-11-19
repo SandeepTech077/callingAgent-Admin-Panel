@@ -1,57 +1,57 @@
 const express = require('express');
+const { body } = require('express-validator');
+const userController = require('../controllers/userController');
+const { protect } = require('../middleware/auth');
+
 const router = express.Router();
-const {
-  getUsers,
-  getUserStats
-} = require('../controllers/userController');
-const auth = require('../middleware/auth');
 
-// Apply authentication middleware to all routes
-router.use(auth);
-
-// GET /api/users/stats - Get user statistics
-router.get('/stats', getUserStats);
-
-// Debug route to test if routes are working (without auth)
-router.get('/debug', (req, res) => {
-  res.json({
-    success: true,
-    message: 'User routes are working!',
-    timestamp: new Date().toISOString(),
-    route: 'GET /api/users/debug'
-  });
-});
-
-// Test route for getting user by ID without auth middleware
-router.get('/test/:id', async (req, res) => {
-  try {
-    console.log('Test route - Getting user with ID:', req.params.id);
-    const User = require('../models/User');
-    const user = await User.findById(req.params.id).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found in test route'
-      });
+// Validation rules
+const userValidation = [
+  body('firstName').trim().notEmpty().withMessage('First name is required'),
+  body('lastName').trim().notEmpty().withMessage('Last name is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('mobile').matches(/^[0-9]{10,15}$/).withMessage('Valid mobile number is required'),
+  body('companyName').trim().notEmpty().withMessage('Company name is required'),
+  body('companyAddress').trim().notEmpty().withMessage('Company address is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error('Passwords do not match');
     }
+    return true;
+  })
+];
 
-    res.json({
-      success: true,
-      message: 'User retrieved successfully via test route',
-      data: user
-    });
-  } catch (error) {
-    console.error('Test route error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error in test route',
-      error: error.message
-    });
-  }
-});
+const updateUserValidation = [
+  body('firstName').optional().trim().notEmpty().withMessage('First name cannot be empty'),
+  body('lastName').optional().trim().notEmpty().withMessage('Last name cannot be empty'),
+  body('email').optional().isEmail().withMessage('Valid email is required'),
+  body('mobile').optional().matches(/^[0-9]{10,15}$/).withMessage('Valid mobile number is required'),
+  body('companyName').optional().trim().notEmpty().withMessage('Company name cannot be empty'),
+  body('companyAddress').optional().trim().notEmpty().withMessage('Company address cannot be empty'),
+  body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('confirmPassword').optional().custom((value, { req }) => {
+    if (req.body.password && value !== req.body.password) {
+      throw new Error('Passwords do not match');
+    }
+    return true;
+  })
+];
 
-// GET /api/users - Get all users with pagination and filters
-router.get('/', getUsers);
+// All routes require authentication
+router.use(protect);
+
+// User statistics - must come before /:id route
+router.get('/stats', userController.getUserStats);
+
+// CRUD routes
+router.post('/', userValidation, userController.createUser);
+router.get('/', userController.getAllUsers);
+router.get('/:id', userController.getUserById);
+router.put('/:id', updateUserValidation, userController.updateUser);
+router.delete('/:id', userController.deleteUser);
+
+// Toggle approval
+router.patch('/:id/approval', userController.toggleUserApproval);
 
 module.exports = router;

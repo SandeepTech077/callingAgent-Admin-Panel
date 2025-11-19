@@ -1,37 +1,37 @@
 // API utility functions
+import axios from 'axios';
+
 export const apiClient = {
   baseURL: '/api',
   
   async get<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
+    try {
+      const response = await axios.get<T>(`${this.baseURL}${endpoint}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return response.data;
+    } catch (error: any) {
+      throw new Error(`API Error: ${error.response?.statusText || error.message}`);
     }
-    
-    return response.json();
   },
   
   async post<T>(endpoint: string, data: unknown): Promise<T> {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
+    try {
+      const response = await axios.post<T>(`${this.baseURL}${endpoint}`, data, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return response.data;
+    } catch (error: any) {
+      throw new Error(`API Error: ${error.response?.statusText || error.message}`);
     }
-    
-    return response.json();
   },
 };
 

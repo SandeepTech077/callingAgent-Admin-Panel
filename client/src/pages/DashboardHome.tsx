@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react';
-import { usersAPI } from '../api/users';
-import type { AdminUser } from '../types';
+import { useState } from 'react';
 
 interface DashboardStats {
   totalUsers: number;
@@ -11,16 +9,8 @@ interface DashboardStats {
   totalBots: number;
 }
 
-interface User extends AdminUser {
-  minutesUsed?: number;
-  minutesRemaining?: number;
-  lastActive?: string;
-  plan?: string;
-  status?: 'active' | 'inactive' | 'suspended';
-}
-
 export default function DashboardHome() {
-  const [stats, setStats] = useState<DashboardStats>({
+  const [stats] = useState<DashboardStats>({
     totalUsers: 0,
     totalMinutes: 125463,
     activeClients: 0,
@@ -28,82 +18,6 @@ export default function DashboardHome() {
     totalActiveBots: 23,
     totalBots: 45
   });
-
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Load dashboard data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Load user statistics
-        const statsResponse = await usersAPI.getUserStats();
-        if (statsResponse.success && statsResponse.data) {
-          setStats(prev => ({
-            ...prev,
-            totalUsers: statsResponse.data!.totalUsers,
-            activeClients: statsResponse.data!.activeUsers,
-          }));
-        }
-
-        // Load users for the table
-        const usersResponse = await usersAPI.getUsers({ limit: 10 });
-        if (usersResponse.success && usersResponse.data) {
-          setUsers(usersResponse.data.users);
-        }
-      } catch (err) {
-        console.error('Error loading dashboard data:', err);
-        setError('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  // Get user status based on AdminUser properties
-  const getUserStatus = (user: User): 'active' | 'inactive' | 'suspended' => {
-    if (!user.isActive) return 'inactive';
-    if (!user.isApproved) return 'suspended';
-    return 'active';
-  };
-
-  const getStatusBadge = (status: 'active' | 'inactive' | 'suspended') => {
-    const statusStyles = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800',
-      suspended: 'bg-red-100 text-red-800'
-    };
-    return statusStyles[status];
-  };
-
-  const formatDateTime = (dateString?: string) => {
-    if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString();
-  };
-
-  // Generate a user ID for display purposes
-  const getUserId = (user: User) => {
-    return user._id || `user-${user.email}`;
-  };
-
-  // Calculate dummy minutes for display
-  const getMinutesUsed = (user: User) => {
-    return user.minutesUsed || Math.floor(Math.random() * 1000);
-  };
-
-  const getMinutesRemaining = (user: User) => {
-    return user.minutesRemaining || Math.floor(Math.random() * 2000 + 500);
-  };
-
-  const getUserPlan = (user: User) => {
-    return user.plan || (user.role === 'admin' ? 'Admin' : user.role === 'super_admin' ? 'Super Admin' : 'Basic');
-  };
 
   return (
     <div className="space-y-8">
@@ -113,7 +27,7 @@ export default function DashboardHome() {
           Admin Dashboard
         </h2>
         <p className="text-lg text-gray-600 max-w-2xl">
-          Monitor your calling agent platform with real-time metrics and user management
+          Monitor your calling agent platform with real-time metrics
         </p>
       </div>
 
@@ -216,170 +130,13 @@ export default function DashboardHome() {
         </div>
       </div>
 
-      {/* Loading and Error States */}
-      {loading && (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">Loading dashboard data...</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="text-red-400">
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Error loading data</h3>
-              <p className="text-sm text-red-600 mt-1">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Users Table */}
-      {!loading && !error && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-gray-900">User Management</h3>
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                Add User
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Plan
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Minutes Used
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Minutes Remaining
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Active
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => {
-                const userStatus = getUserStatus(user);
-                return (
-                  <tr key={getUserId(user)} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center">
-                          <span className="text-sm font-medium text-white">
-                            {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(userStatus)}`}>
-                        {userStatus.charAt(0).toUpperCase() + userStatus.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getUserPlan(user)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getMinutesUsed(user).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getMinutesRemaining(user).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDateTime(user.updatedAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        <span className="text-gray-400 text-xs">View Only</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination */}
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Previous
-            </button>
-            <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of{' '}
-                <span className="font-medium">{users.length}</span> results
-              </p>
-            </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  <span className="sr-only">Previous</span>
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  1
-                </button>
-                <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  <span className="sr-only">Next</span>
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </nav>
-            </div>
-          </div>
-        </div>
+      {/* Welcome Message */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+        <h3 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Admin Dashboard</h3>
+        <p className="text-gray-600">
+          This dashboard provides an overview of your calling agent platform. Monitor key metrics and manage your system efficiently.
+        </p>
       </div>
-      )}
     </div>
   );
 }

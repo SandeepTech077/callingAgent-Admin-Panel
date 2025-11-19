@@ -1,113 +1,208 @@
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const { validationResult } = require('express-validator');
+const userService = require('../services/userService');
 
-// Get all users with pagination and filters
-const getUsers = async (req, res) => {
+// @desc    Create new user
+// @route   POST /api/users
+// @access  Private (Admin only)
+const createUser = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search, 
-      role, 
-      status,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query;
-
-    // Build filter object
-    const filter = {};
-    
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { companyName: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    if (role && role !== 'all') {
-      filter.role = role;
-    }
-    
-    if (status) {
-      if (status === 'active') {
-        filter.isActive = true;
-        filter.isApproved = true;
-      } else if (status === 'inactive') {
-        filter.isActive = false;
-      } else if (status === 'pending') {
-        filter.isApproved = false;
-      }
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
     }
 
-    // Build sort object
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    const user = await userService.createUser(req.body);
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Get users with pagination
-    const users = await User.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-password');
-
-    // Get total count for pagination
-    const total = await User.countDocuments(filter);
-
-    res.json({
+    res.status(201).json({
       success: true,
-      message: 'Users retrieved successfully',
-      data: {
-        users,
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit))
-      }
+      message: 'User created successfully',
+      data: { user }
     });
+
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({
+    console.error('Create user error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
       success: false,
-      message: 'Error fetching users',
-      error: error.message
+      message: error.message || 'Server error creating user',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// Get user statistics
+// @desc    Get all users
+// @route   GET /api/users
+// @access  Private (Admin only)
+const getAllUsers = async (req, res) => {
+  try {
+    const { page, limit, isApproval } = req.query;
+    
+    const filters = {};
+    if (isApproval !== undefined) {
+      filters.isApproval = parseInt(isApproval);
+    }
+    if (page) filters.page = parseInt(page);
+    if (limit) filters.limit = parseInt(limit);
+
+    const result = await userService.getAllUsers(filters);
+
+    res.json({
+      success: true,
+      message: 'Users retrieved successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving users'
+    });
+  }
+};
+
+// @desc    Get user by ID
+// @route   GET /api/users/:id
+// @access  Private (Admin only)
+const getUserById = async (req, res) => {
+  try {
+    const user = await userService.getUserById(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'User retrieved successfully',
+      data: { user }
+    });
+
+  } catch (error) {
+    console.error('Get user error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
+      success: false,
+      message: error.message || 'Server error retrieving user'
+    });
+  }
+};
+
+// @desc    Update user
+// @route   PUT /api/users/:id
+// @access  Private (Admin only)
+const updateUser = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const user = await userService.updateUser(req.params.id, req.body);
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: { user }
+    });
+
+  } catch (error) {
+    console.error('Update user error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
+      success: false,
+      message: error.message || 'Server error updating user'
+    });
+  }
+};
+
+// @desc    Toggle user approval
+// @route   PATCH /api/users/:id/approval
+// @access  Private (Admin only)
+const toggleUserApproval = async (req, res) => {
+  try {
+    const { isApproval } = req.body;
+
+    if (isApproval === undefined || ![0, 1].includes(isApproval)) {
+      return res.status(400).json({
+        success: false,
+        message: 'isApproval must be 0 or 1'
+      });
+    }
+
+    const user = await userService.toggleUserApproval(req.params.id, isApproval);
+
+    res.json({
+      success: true,
+      message: `User ${isApproval === 1 ? 'approved' : 'unapproved'} successfully`,
+      data: { user }
+    });
+
+  } catch (error) {
+    console.error('Toggle approval error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
+      success: false,
+      message: error.message || 'Server error toggling approval'
+    });
+  }
+};
+
+// @desc    Delete user (soft delete)
+// @route   DELETE /api/users/:id
+// @access  Private (Admin only)
+const deleteUser = async (req, res) => {
+  try {
+    await userService.deleteUser(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete user error:', error);
+    const status = error.status || 500;
+    res.status(status).json({
+      success: false,
+      message: error.message || 'Server error deleting user'
+    });
+  }
+};
+
+// @desc    Get user statistics
+// @route   GET /api/users/stats
+// @access  Private (Admin only)
 const getUserStats = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const activeUsers = await User.countDocuments({ isActive: true, isApproved: true });
-    const adminUsers = await User.countDocuments({ role: { $in: ['admin', 'super_admin'] } });
-    const pendingApproval = await User.countDocuments({ isApproved: false });
+    const stats = await userService.getUserStats();
 
     res.json({
       success: true,
       message: 'User statistics retrieved successfully',
-      data: {
-        totalUsers,
-        activeUsers,
-        adminUsers,
-        pendingApproval
-      }
+      data: stats
     });
+
   } catch (error) {
-    console.error('Error fetching user stats:', error);
+    console.error('Get stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching user statistics',
-      error: error.message
+      message: 'Server error retrieving statistics'
     });
   }
 };
 
 module.exports = {
-  getUsers,
+  createUser,
+  getAllUsers,
+  getUserById,
+  updateUser,
+  toggleUserApproval,
+  deleteUser,
   getUserStats
 };
