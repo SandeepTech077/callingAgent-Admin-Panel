@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Outlet, NavLink } from 'react-router';
+import { Outlet, NavLink, useLocation } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { navigationItems } from '../../config/navlinks';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     // Check if user previously had sidebar open (localStorage)
     if (typeof window !== 'undefined') {
@@ -13,6 +15,33 @@ export default function Sidebar() {
     }
     return true; // Default to true (open)
   });
+
+  // Get page header based on current route
+  const getPageHeader = () => {
+    const path = location.pathname;
+    
+    if (path === '/') {
+      return { title: 'Dashboard', subtitle: 'Welcome back! Here\'s what\'s happening.' };
+    } else if (path === '/users') {
+      return { title: 'Users', subtitle: 'Manage user accounts and permissions' };
+    } else if (path.startsWith('/users/') && path.includes('/view')) {
+      return { title: 'User Details', subtitle: 'View user information and activity' };
+    } else if (path.startsWith('/users/') && path.includes('/edit')) {
+      return { title: 'Edit User', subtitle: 'Update user information and settings' };
+    } else if (path === '/assistant') {
+      return { title: 'Assistants', subtitle: 'Manage your AI assistants' };
+    } else if (path === '/assistants/create') {
+      return { title: 'Create Assistant', subtitle: 'Configure your new AI assistant' };
+    } else if (path.startsWith('/assistants/') && path.includes('/view')) {
+      return { title: 'Assistant Details', subtitle: 'View assistant configuration' };
+    } else if (path.startsWith('/assistants/') && path.includes('/edit')) {
+      return { title: 'Edit Assistant', subtitle: 'Update assistant configuration' };
+    }
+    
+    return { title: 'Dashboard', subtitle: 'Welcome back! Here\'s what\'s happening.' };
+  };
+
+  const pageHeader = getPageHeader();
 
   const handleLogout = () => {
     logout();
@@ -201,8 +230,8 @@ export default function Sidebar() {
                 </button>
                 {/* Page title */}
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
-                  <p className="text-sm text-gray-500 hidden sm:block">Welcome back! Here's what's happening.</p>
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{pageHeader.title}</h1>
+                  <p className="text-sm text-gray-500 hidden sm:block">{pageHeader.subtitle}</p>
                 </div>
               </div>
               

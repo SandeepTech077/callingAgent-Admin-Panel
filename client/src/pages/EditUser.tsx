@@ -16,6 +16,7 @@ export default function EditUser() {
     mobile: '',
     companyName: '',
     companyAddress: '',
+    bearerToken: '',
     password: '',
     confirmPassword: '',
   });
@@ -45,6 +46,7 @@ export default function EditUser() {
         mobile: user.mobile,
         companyName: user.companyName,
         companyAddress: user.companyAddress,
+        bearerToken: user.bearerToken || '',
         password: '',
         confirmPassword: '',
       });
@@ -65,6 +67,7 @@ export default function EditUser() {
       mobile: formData.mobile,
       companyName: formData.companyName,
       companyAddress: formData.companyAddress,
+      bearerToken: formData.bearerToken,
     };
 
     if (formData.password) {
@@ -77,7 +80,7 @@ export default function EditUser() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-blue-50 to-indigo-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto"></div>
           <p className="mt-4 text-gray-600 font-medium">Loading user data...</p>
@@ -87,12 +90,12 @@ export default function EditUser() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate(`/users/${id}/view`)}
+            onClick={() => navigate(-1)}
             className="group inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors mb-6"
           >
             <div className="p-1 rounded-full group-hover:bg-blue-100 transition-colors">
@@ -183,7 +186,7 @@ export default function EditUser() {
           </div>
 
           {/* Company Information Section */}
-          <div className="p-8 border-b border-gray-200 bg-gradient-to-br from-indigo-50/50 to-purple-50/50">
+          <div className="p-8 border-b border-gray-200 bg-linear-to-br from-indigo-50/50 to-purple-50/50">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-indigo-100 rounded-lg">
                 <svg className="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,6 +225,46 @@ export default function EditUser() {
                   placeholder="Enter complete company address"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Bolna AI Configuration Section */}
+          <div className="p-8 border-b border-gray-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Bolna AI Integration</h2>
+                <p className="text-sm text-gray-600 mt-1">Configure API access for AI assistants</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Bearer Token
+                <span className="text-gray-500 font-normal ml-2">(Optional - Required for creating AI assistants)</span>
+              </label>
+              <input
+                type="text"
+                name="bearerToken"
+                value={formData.bearerToken}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all bg-white font-mono text-sm"
+                placeholder="Enter Bolna AI Bearer Token (e.g., sk_...)"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Get your Bearer Token from{' '}
+                <a 
+                  href="https://platform.bolna.ai/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-green-600 hover:text-green-700 underline"
+                >
+                  Bolna AI Platform
+                </a>
+              </p>
             </div>
           </div>
 
@@ -282,7 +325,7 @@ export default function EditUser() {
               <button
                 type="submit"
                 disabled={updateMutation.isPending}
-                className="flex-1 min-w-[200px] px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 min-w-[200px] px-6 py-4 bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {updateMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">

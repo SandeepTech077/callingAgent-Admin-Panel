@@ -48,6 +48,12 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters']
   },
+  bearerToken: {
+    type: String,
+    trim: true,
+    default: null,
+    comment: 'Bolna AI API Bearer Token for agent creation'
+  },
   userId: {
     type: String,
     unique: true,

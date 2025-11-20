@@ -6,6 +6,9 @@ import Users from './pages/Users';
 import ViewUser from './pages/ViewUser';
 import EditUser from './pages/EditUser';
 import Assistant from './pages/Assistant';
+import AssistantCreate from './pages/AssistantCreate';
+import AssistantView from './pages/AssistantView';
+import AssistantEdit from './pages/AssistantEdit';
 import NotFound from './pages/NotFound';
 
 export const routes: RouteObject[] = [
@@ -40,6 +43,18 @@ export const routes: RouteObject[] = [
       {
         path: "assistant",
         element: <Assistant />,
+      },
+      {
+        path: "assistants/create",
+        element: <AssistantCreate />,
+      },
+      {
+        path: "assistants/:id/view",
+        element: <AssistantView />,
+      },
+      {
+        path: "assistants/:id/edit",
+        element: <AssistantEdit />,
       },
     ],
   },

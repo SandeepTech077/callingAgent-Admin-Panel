@@ -10,6 +10,7 @@ export interface User {
   companyName: string;
   companyAddress: string;
   userId: string;
+  bearerToken?: string;
   isApproval: 0 | 1;
   totalMinutes: number;
   paymentId?: string;
@@ -28,6 +29,7 @@ export interface CreateUserData {
   companyAddress: string;
   password: string;
   confirmPassword: string;
+  bearerToken?: string;
   totalMinutes?: number;
   paymentId?: string;
   [key: string]: string | number | undefined;
@@ -36,6 +38,7 @@ export interface CreateUserData {
 export interface UpdateUserData extends Partial<CreateUserData> {
   isApproval?: 0 | 1;
   totalMinutes?: number;
+  bearerToken?: string;
 }
 
 export interface UsersListResponse {

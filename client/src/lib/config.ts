@@ -13,8 +13,8 @@ export const config = {
     userDataKey: 'userData',
   },
   routes: {
-    public: ['/', '/login'],
-    protected: ['/dashboard', '/dashboard/settings', '/dashboard/analytics'],
-    redirectAfterLogin: '/dashboard',
+    public: [ '/login'],
+    protected: ['/', '/users', '/assistant'],
+    redirectAfterLogin: '/',
   },
 } as const;

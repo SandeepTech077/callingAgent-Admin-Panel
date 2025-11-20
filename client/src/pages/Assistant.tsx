@@ -1,12 +1,30 @@
+import { useQuery } from '@tanstack/react-query';
+import { assistantsAPI } from '../api/assistants';
+import { Plus } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { AssistantTable } from '../components/AssistantComponents';
+
 export default function Assistant() {
+  const navigate = useNavigate();
+
+  // Fetch assistants
+  const { data: assistantsResponse, isLoading: loadingAssistants } = useQuery({
+    queryKey: ['assistants'],
+    queryFn: () => assistantsAPI.getAllAssistants()
+  });
+
+  const assistants = assistantsResponse?.data || [];
+
   return (
-    <div className="p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Assistant</h1>
-        
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600">Assistant page content will be added here.</p>
-        </div>
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+      <div className="max-w-7xl mx-auto">
+      
+
+        {/* Assistants Table */}
+        <AssistantTable
+          assistants={assistants}
+          isLoading={loadingAssistants}
+        />
       </div>
     </div>
   );

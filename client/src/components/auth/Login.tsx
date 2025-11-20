@@ -11,7 +11,7 @@ export default function Login() {
   const location = useLocation();
 
   // Get the redirect path from location state, or default to dashboard
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || '/';
 
   // If already authenticated, redirect to the intended destination
   if (isAuthenticated) {
