@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink } from 'react-router';
-import { useAuth } from '../hooks/useAuth';
-import { navigationItems } from '../config/navlinks';
+import { useAuth } from '../../hooks/useAuth';
+import { navigationItems } from '../../config/navlinks';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();

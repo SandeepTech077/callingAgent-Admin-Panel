@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router';
-import { useAuth } from '../hooks/useAuth';
-import type { ProtectedRouteProps } from '../types';
+import { useAuth } from '../../hooks/useAuth';
+import type { ProtectedRouteProps } from '../../types';
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();

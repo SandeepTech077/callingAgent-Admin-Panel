@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { usersAPI, type User, type CreateUserData } from '../api';
+import { UserModal } from '../components/users';
+
+type ModalMode = 'create' | 'edit' | 'view' | null;
 
 export default function Users() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<CreateUserData>({
@@ -59,6 +65,7 @@ export default function Users() {
     });
     setValidationErrors({});
     setError(null);
+    setSelectedUser(null);
   };
 
   // Validate form
@@ -99,16 +106,26 @@ export default function Users() {
       errors.companyAddress = 'Company address is required';
     }
 
-    if (!formData.password) {
-      errors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
-    }
+    // Password validation only for create mode or if password is provided in edit mode
+    if (modalMode === 'create') {
+      if (!formData.password) {
+        errors.password = 'Password is required';
+      } else if (formData.password.length < 6) {
+        errors.password = 'Password must be at least 6 characters';
+      }
 
-    if (!formData.confirmPassword) {
-      errors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
+      if (!formData.confirmPassword) {
+        errors.confirmPassword = 'Please confirm your password';
+      } else if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match';
+      }
+    } else if (modalMode === 'edit' && formData.password) {
+      if (formData.password.length < 6) {
+        errors.password = 'Password must be at least 6 characters';
+      }
+      if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match';
+      }
     }
 
     setValidationErrors(errors);
@@ -122,7 +139,6 @@ export default function Users() {
       ...prev,
       [name]: value
     }));
-    // Clear validation error for this field
     if (validationErrors[name]) {
       setValidationErrors(prev => {
         const newErrors = { ...prev };
@@ -132,7 +148,7 @@ export default function Users() {
     }
   };
 
-  // Handle form submit
+  // Handle create/edit user
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -144,39 +160,126 @@ export default function Users() {
     setError(null);
 
     try {
-      const response = await usersAPI.createUser({
-        ...formData,
-        totalMinutes: 0,
-        paymentId: ''
-      });
-      
-      if (response.success) {
-        setIsModalOpen(false);
-        resetForm();
-        await loadUsers();
+      if (modalMode === 'create') {
+        const response = await usersAPI.createUser({
+          ...formData,
+          totalMinutes: 0,
+          paymentId: ''
+        });
+        
+        if (response.success) {
+          setModalMode(null);
+          resetForm();
+          await loadUsers();
+        }
+      } else if (modalMode === 'edit' && selectedUser) {
+        const updateData: {
+          firstName: string;
+          lastName: string;
+          email: string;
+          mobile: string;
+          companyName: string;
+          companyAddress: string;
+          password?: string;
+          confirmPassword?: string;
+        } = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          mobile: formData.mobile,
+          companyName: formData.companyName,
+          companyAddress: formData.companyAddress,
+        };
+        
+        if (formData.password) {
+          updateData.password = formData.password;
+          updateData.confirmPassword = formData.confirmPassword;
+        }
+
+        const response = await usersAPI.updateUser(selectedUser._id, updateData);
+        
+        if (response.success) {
+          setModalMode(null);
+          resetForm();
+          await loadUsers();
+        }
       }
     } catch (err: unknown) {
-      console.error('Error creating user:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
+      console.error('Error saving user:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save user';
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Toggle approval
+  // Toggle approval - optimistic update
   const handleToggleApproval = async (userId: string, currentStatus: 0 | 1) => {
+    const newStatus = currentStatus === 1 ? 0 : 1;
+    
+    // Optimistic update
+    setUsers(prevUsers => 
+      prevUsers.map(user => 
+        user._id === userId ? { ...user, isApproval: newStatus } : user
+      )
+    );
+
     try {
-      const newStatus = currentStatus === 1 ? 0 : 1;
       const response = await usersAPI.toggleApproval(userId, newStatus);
-      if (response.success) {
-        await loadUsers();
+      if (!response.success) {
+        // Revert on failure
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user._id === userId ? { ...user, isApproval: currentStatus } : user
+          )
+        );
+        setError('Failed to update status');
       }
     } catch (err: unknown) {
+      // Revert on error
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user._id === userId ? { ...user, isApproval: currentStatus } : user
+        )
+      );
       console.error('Error toggling approval:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to toggle approval';
       setError(errorMessage);
     }
+  };
+
+  // Delete user
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) {
+      return;
+    }
+
+    try {
+      const response = await usersAPI.deleteUser(userId);
+      if (response.success) {
+        await loadUsers();
+      }
+    } catch (err: unknown) {
+      console.error('Error deleting user:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+      setError(errorMessage);
+    }
+  };
+
+  // Navigate to edit page
+  const handleEditUser = (user: User) => {
+    navigate(`/users/${user._id}/edit`);
+  };
+
+  // Navigate to view page
+  const handleViewUser = (user: User) => {
+    navigate(`/users/${user._id}/view`);
+  };
+
+  // Close modal
+  const handleCloseModal = () => {
+    setModalMode(null);
+    resetForm();
   };
 
   // Format date
@@ -202,7 +305,7 @@ export default function Users() {
         <button
           onClick={() => {
             resetForm();
-            setIsModalOpen(true);
+            setModalMode('create');
           }}
           className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
         >
@@ -252,29 +355,23 @@ export default function Users() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-linear-to-r from-gray-50 to-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">User ID</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Company</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Last Login</th>
                   <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
                   <tr key={user._id} className="hover:bg-blue-50 transition-colors duration-150">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                        {user.userId}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 shrink-0">
                           <div className="h-10 w-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                             <span className="text-sm font-bold text-white">
                               {(user.firstName?.[0] || '').toUpperCase()}{(user.lastName?.[0] || '').toUpperCase()}
-
                             </span>
                           </div>
                         </div>
@@ -312,6 +409,38 @@ export default function Users() {
                         {user.isApproval === 1 ? 'Approved' : 'Pending'}
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleViewUser(user)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="View Details"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleEditUser(user)}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Edit User"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user._id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete User"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -330,238 +459,20 @@ export default function Users() {
         </div>
       )}
 
-      {/* Create User Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-            <div className="bg-linear-to-r from-blue-600 to-blue-700 p-6 rounded-t-2xl shrink-0">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-white">Create New User</h3>
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    resetForm();
-                  }}
-                  className="text-white hover:text-gray-200 transition-colors"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <p className="text-blue-100 mt-2">Fill in the user details below</p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
-              {/* Name Fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                      validationErrors.firstName 
-                        ? 'border-red-500 focus:border-red-600' 
-                        : 'border-gray-300 focus:border-blue-500'
-                    }`}
-                    placeholder="Enter first name"
-                  />
-                  {validationErrors.firstName && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                      validationErrors.lastName 
-                        ? 'border-red-500 focus:border-red-600' 
-                        : 'border-gray-300 focus:border-blue-500'
-                    }`}
-                    placeholder="Enter last name"
-                  />
-                  {validationErrors.lastName && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                    validationErrors.email 
-                      ? 'border-red-500 focus:border-red-600' 
-                      : 'border-gray-300 focus:border-blue-500'
-                  }`}
-                  placeholder="user@example.com"
-                />
-                {validationErrors.email && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
-                )}
-              </div>
-
-              {/* Mobile */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Mobile Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  name="mobile"
-                  value={formData.mobile}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                    validationErrors.mobile 
-                      ? 'border-red-500 focus:border-red-600' 
-                      : 'border-gray-300 focus:border-blue-500'
-                  }`}
-                  placeholder="1234567890"
-                />
-                {validationErrors.mobile && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.mobile}</p>
-                )}
-              </div>
-
-              {/* Company Name */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="companyName"
-                  value={formData.companyName}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                    validationErrors.companyName 
-                      ? 'border-red-500 focus:border-red-600' 
-                      : 'border-gray-300 focus:border-blue-500'
-                  }`}
-                  placeholder="Enter company name"
-                />
-                {validationErrors.companyName && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.companyName}</p>
-                )}
-              </div>
-
-              {/* Company Address */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Company Address <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  name="companyAddress"
-                  value={formData.companyAddress}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors resize-none ${
-                    validationErrors.companyAddress 
-                      ? 'border-red-500 focus:border-red-600' 
-                      : 'border-gray-300 focus:border-blue-500'
-                  }`}
-                  placeholder="Enter complete company address"
-                />
-                {validationErrors.companyAddress && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.companyAddress}</p>
-                )}
-              </div>
-
-              {/* Password Fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Password <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                      validationErrors.password 
-                        ? 'border-red-500 focus:border-red-600' 
-                        : 'border-gray-300 focus:border-blue-500'
-                    }`}
-                    placeholder="Min. 6 characters"
-                  />
-                  {validationErrors.password && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors.password}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Confirm Password <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                      validationErrors.confirmPassword 
-                        ? 'border-red-500 focus:border-red-600' 
-                        : 'border-gray-300 focus:border-blue-500'
-                    }`}
-                    placeholder="Re-enter password"
-                  />
-                  {validationErrors.confirmPassword && (
-                    <p className="mt-1 text-sm text-red-600">{validationErrors.confirmPassword}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-6 border-t-2 border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-8 py-3 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Creating...
-                    </span>
-                  ) : (
-                    'Create User'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* User Modal */}
+      {modalMode && (
+        <UserModal
+          mode={modalMode}
+          isOpen={modalMode !== null}
+          onClose={handleCloseModal}
+          onSubmit={handleSubmit}
+          formData={formData}
+          onInputChange={handleInputChange}
+          validationErrors={validationErrors}
+          isSubmitting={isSubmitting}
+          selectedUser={selectedUser}
+          formatDate={formatDate}
+        />
       )}
     </div>
   );

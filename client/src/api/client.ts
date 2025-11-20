@@ -41,6 +41,19 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle 401 Unauthorized - redirect to login
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      console.warn('Unauthorized access - clearing auth and redirecting to login');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      window.location.href = '/login';
+    }
+    
+    // Handle 403 Forbidden
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      console.error('Access forbidden - insufficient permissions');
+    }
+    
     console.error('API request failed:', error);
     throw error;
   }
