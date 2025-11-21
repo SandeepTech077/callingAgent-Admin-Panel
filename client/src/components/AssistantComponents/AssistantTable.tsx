@@ -2,18 +2,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { assistantsAPI, type Assistant } from '../../api/assistants';
-import { Eye, Edit, Trash2, Search, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { type User } from '../../api/users';
+import { Eye, Edit, Trash2, Search, X, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AssistantTableProps {
   assistants: Assistant[];
+  users: User[];
   isLoading: boolean;
 }
 
-export default function AssistantTable({ assistants, isLoading }: AssistantTableProps) {
+export default function AssistantTable({ assistants, users, isLoading }: AssistantTableProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; assistant: Assistant | null }>({
     open: false,
     assistant: null
@@ -49,14 +52,15 @@ export default function AssistantTable({ assistants, isLoading }: AssistantTable
     setDeleteModal({ open: false, assistant: null });
   };
 
-  // Filter assistants based on search
+  // Filter assistants based on search and user selection
   const filteredAssistants = assistants.filter((assistant) => {
     const query = searchQuery.toLowerCase();
     const user = typeof assistant.userId === 'object' ? assistant.userId : null;
     const userName = user ? `${user.firstName} ${user.lastName}`.toLowerCase() : '';
     const userEmail = user?.email.toLowerCase() || '';
     
-    return (
+    // Search filter
+    const matchesSearch = !searchQuery || (
       assistant.agentName.toLowerCase().includes(query) ||
       assistant.agentType.toLowerCase().includes(query) ||
       assistant.status.toLowerCase().includes(query) ||
@@ -64,6 +68,11 @@ export default function AssistantTable({ assistants, isLoading }: AssistantTable
       userEmail.includes(query) ||
       assistant.agentId?.toLowerCase().includes(query)
     );
+    
+    // User filter
+    const matchesUser = !selectedUserId || (user && user._id === selectedUserId);
+    
+    return matchesSearch && matchesUser;
   });
 
   const getStatusBadge = (status: string) => {
@@ -86,29 +95,68 @@ export default function AssistantTable({ assistants, isLoading }: AssistantTable
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
+      {/* Search and Filter Bar */}
       <div className="bg-white rounded-lg shadow-md p-4 border border-gray-200">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by name, type, status, user, email, or agent ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search Box */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name, type, status, user, email, or agent ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          
+          {/* User Filter Dropdown */}
+          <div className="relative md:w-64">
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="w-full appearance-none pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white cursor-pointer"
             >
-              <X className="h-5 w-5" />
+              <option value="">All Users</option>
+              {users.map((user) => {
+                const userAssistantsCount = assistants.filter(
+                  (assistant) => typeof assistant.userId === 'object' && assistant.userId._id === user._id
+                ).length;
+                return (
+                  <option key={user._id} value={user._id}>
+                    {user.firstName} {user.lastName} ({userAssistantsCount})
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center mt-3">
+          <p className="text-sm text-gray-600">
+            Found {filteredAssistants.length} of {assistants.length} assistants
+          </p>
+          {(searchQuery || selectedUserId) && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedUserId('');
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Clear Filters
             </button>
           )}
         </div>
-        <p className="text-sm text-gray-600 mt-2">
-          Found {filteredAssistants.length} of {assistants.length} assistants
-        </p>
       </div>
 
       {/* Table */}
