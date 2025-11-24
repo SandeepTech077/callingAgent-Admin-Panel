@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { assistantsAPI, type CreateAssistantData } from '../api/assistants';
+import { assistantsAPI, type CreateAssistantData } from '../../api/assistants';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Loader2, Save, Eye } from 'lucide-react';
-import { usersAPI, type User } from '../api/users';
+import { usersAPI, type User } from '../../api/users';
 
 export default function AssistantEdit() {
   const { id } = useParams<{ id: string }>();

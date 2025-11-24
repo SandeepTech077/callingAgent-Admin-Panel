@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { usersAPI, type User, type CreateUserData } from '../api';
-import { UserModal } from '../components/users';
+import { usersAPI, type User, type CreateUserData } from '../../api';
+import { UserModal } from '../../components/users';
 
 type ModalMode = 'create' | 'edit' | 'view' | null;
 

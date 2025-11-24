@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { assistantsAPI } from '../api/assistants';
+import { assistantsAPI } from '../../api/assistants';
 import { ArrowLeft, Loader2, Edit, CheckCircle2, XCircle } from 'lucide-react';
-import type { User } from '../api/users';
+import type { User } from '../../api/users';
 
 export default function AssistantView() {
   const { id } = useParams<{ id: string }>();

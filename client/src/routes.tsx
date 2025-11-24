@@ -2,13 +2,17 @@ import { type RouteObject } from 'react-router';
 import { Login, ProtectedRoute } from './components/auth';
 import { Sidebar } from './components/layout';
 import DashboardHome from './pages/DashboardHome';
-import Users from './pages/Users';
-import ViewUser from './pages/ViewUser';
-import EditUser from './pages/EditUser';
-import Assistant from './pages/Assistant';
-import AssistantCreate from './pages/AssistantCreate';
-import AssistantView from './pages/AssistantView';
-import AssistantEdit from './pages/AssistantEdit';
+import Users from './pages/User/Users';
+import ViewUser from './pages/User/ViewUser';
+import EditUser from './pages/User/EditUser';
+import Assistant from './pages/Assistant/Assistant';
+import AssistantCreate from './pages/Assistant/AssistantCreate';
+import AssistantView from './pages/Assistant/AssistantView';
+import AssignNumber from './pages/Number/AssignNumber';
+import NumberLists from './pages/Number/NumberList';
+import AssignVoice from './pages/Voice/AssignVoice';
+import VoiceLists from './pages/Voice/VoiceList';
+import AssistantEdit from './pages/Assistant/AssistantEdit';
 import NotFound from './pages/NotFound';
 
 export const routes: RouteObject[] = [
@@ -55,6 +59,22 @@ export const routes: RouteObject[] = [
       {
         path: "assistants/:id/edit",
         element: <AssistantEdit />,
+      },
+          {
+        path: "assign/number",
+        element: <AssignNumber />,
+      },
+          {
+        path: "number/lists",
+        element: <NumberLists />,
+      },
+          {
+        path: "assign/voice",
+        element: <AssignVoice />,
+      },
+          {
+        path: "voice/lists",
+        element: <VoiceLists />,
       },
     ],
   },

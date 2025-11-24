@@ -17,29 +17,39 @@ export default function Sidebar() {
   });
 
   // Get page header based on current route
-  const getPageHeader = () => {
-    const path = location.pathname;
-    
-    if (path === '/') {
-      return { title: 'Dashboard', subtitle: 'Welcome back! Here\'s what\'s happening.' };
-    } else if (path === '/users') {
-      return { title: 'Users', subtitle: 'Manage user accounts and permissions' };
-    } else if (path.startsWith('/users/') && path.includes('/view')) {
-      return { title: 'User Details', subtitle: 'View user information and activity' };
-    } else if (path.startsWith('/users/') && path.includes('/edit')) {
-      return { title: 'Edit User', subtitle: 'Update user information and settings' };
-    } else if (path === '/assistant') {
-      return { title: 'Assistants', subtitle: 'Manage your AI assistants' };
-    } else if (path === '/assistants/create') {
-      return { title: 'Create Assistant', subtitle: 'Configure your new AI assistant' };
-    } else if (path.startsWith('/assistants/') && path.includes('/view')) {
-      return { title: 'Assistant Details', subtitle: 'View assistant configuration' };
-    } else if (path.startsWith('/assistants/') && path.includes('/edit')) {
-      return { title: 'Edit Assistant', subtitle: 'Update assistant configuration' };
-    }
-    
+ const getPageHeader = () => {
+  const path = location.pathname;
+
+  if (path === '/') {
     return { title: 'Dashboard', subtitle: 'Welcome back! Here\'s what\'s happening.' };
-  };
+  } else if (path === '/users') {
+    return { title: 'Users', subtitle: 'Manage user accounts and permissions' };
+  } else if (path.startsWith('/users/') && path.includes('/view')) {
+    return { title: 'User Details', subtitle: 'View user information and activity' };
+  } else if (path.startsWith('/users/') && path.includes('/edit')) {
+    return { title: 'Edit User', subtitle: 'Update user information and settings' };
+  } else if (path === '/assistant') {
+    return { title: 'Assistants', subtitle: 'Manage your AI assistants' };
+  } else if (path === '/assistants/create') {
+    return { title: 'Create Assistant', subtitle: 'Configure your new AI assistant' };
+  } else if (path.startsWith('/assistants/') && path.includes('/view')) {
+    return { title: 'Assistant Details', subtitle: 'View assistant configuration' };
+  } else if (path.startsWith('/assistants/') && path.includes('/edit')) {
+    return { title: 'Edit Assistant', subtitle: 'Update assistant configuration' };
+  } 
+  // 🔽 New header mappings
+  else if (path === '/assign/number') {
+    return { title: 'Assign Number', subtitle: 'Assign phone numbers to assistants or users' };
+  } else if (path === '/number/lists') {
+    return { title: 'Number List', subtitle: 'View and manage all assigned numbers' };
+  } else if (path === '/assign/voice') {
+    return { title: 'Assign Voice', subtitle: 'Assign voice profiles to your assistants' };
+  } else if (path === '/voice/lists') {
+    return { title: 'Voice List', subtitle: 'Review and manage all voice configurations' };
+  }
+
+  return { title: 'Dashboard', subtitle: 'Welcome back! Here\'s what\'s happening.' };
+};
 
   const pageHeader = getPageHeader();
 
